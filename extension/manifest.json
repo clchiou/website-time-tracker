@@ -1,0 +1,24 @@
+{
+  "name": "Website Time Tracker",
+  "description": "Keep track of how much time you spend on websites.",
+  "version": "0.0.1.1",
+  "manifest_version": 2,
+  "minimum_chrome_version": "29",
+  "background": {
+    "scripts": ["event-page.js"],
+    "persistent": false
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "https://spreadsheets.google.com/*",
+    "identity",
+    "idle",
+    "storage",
+    "tabs"
+  ],
+  "oauth2": {
+    "client_id": "7104262726-86h2n8v0knn7ch3rk89armodvcn8hpfh.apps.googleusercontent.com",
+    "scopes": ["https://spreadsheets.google.com/feeds"]
+  },
+  "icons": {}
+}

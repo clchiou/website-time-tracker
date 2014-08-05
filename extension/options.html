@@ -1,0 +1,28 @@
+<html>
+<head>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8"/>
+<title>Website Time Tracker Preferences</title>
+</head>
+<body>
+<h3>Preferences</h3>
+
+<p>Spreadsheet: <select id="spreadsheets"><option>...</option></select>
+Worksheet: <select id="worksheets"><option>...</option></select></p>
+
+<h3>Developer Options</h3>
+
+<p>Verbose Level:
+<select id="verbose-level">
+  <option value="0">SILENCE</option>
+  <option value="1">ERROR</option>
+  <option value="2">WARNING</option>
+  <option value="3" selected>INFO</option>
+  <option value="4">DEBUG</option>
+</select>
+</p>
+
+<p>OAuth Token (for development only!): <input id="oauth-token" type="text" size="128"/><input id="oauth-token-submit" type="submit" value="Submit"/></p>
+
+<script type="text/javascript" src="options.js"></script>
+</body>
+</html>
