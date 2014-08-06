@@ -26,14 +26,6 @@
     return this.dict_[key];
   };
 
-  DefaultDict.prototype.set = function (key, value) {
-    if (isUndefined(key)) {
-      return this.dummy_;
-    }
-    this.dict_[key] = value;
-    return value;
-  };
-
   DefaultDict.prototype.remove = function (key) {
     if (isUndefined(key) || !this.dict_.hasOwnProperty(key)) {
       return this.dummy_;
@@ -97,7 +89,7 @@
     Log.d(this.m_('cancel', 'url=' + this.url_));
     this.start_ = undefined;
     return this;
-  }
+  };
 
   Tracker.prototype.m_ = function (methodName) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -234,6 +226,7 @@
     url: function () { return undefined; },
     start: function () { return this; },
     stop: function () { return this; },
+    cancel: function () { return this; },
   });
 
   activatedTabId = undefined;
