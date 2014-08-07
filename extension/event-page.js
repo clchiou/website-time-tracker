@@ -4,122 +4,147 @@
 (function () {
   'use strict';
 
-  var Tracker, Uploader, Log;
+  var DefaultDict, Tracker, Uploader, Log, isUndefined,
+    trackers, activatedTabId;
 
-  Tracker = {
-    STOPPED: 'stopped',
-    STARTED: 'started',
-    PAUSED: 'paused',
+  DefaultDict = function (build, dummy) {
+    if (!(this instanceof DefaultDict)) {
+      return new DefaultDict(build, dummy);
+    }
+    this.build_ = build;
+    this.dummy_ = dummy;
+    this.dict_ = {};
+  };
 
-    state: 'stopped',
-    currentUrl: null,
-    startTime: null,
-    beginTime: null,
-    active: null,
+  DefaultDict.prototype.get = function (key) {
+    if (isUndefined(key)) {
+      return this.dummy_;
+    }
+    if (!this.dict_.hasOwnProperty(key)) {
+      this.dict_[key] = this.build_(key);
+    }
+    return this.dict_[key];
+  };
 
-    start: function () {
-      Log.d('start(): ' + this.toString());
-      if (this.state !== this.STOPPED) {
-        Log.w('start(): state !== STOPPED : state === ' + this.state);
-        return;
-      }
-      this.state = this.STARTED;
-      this.startTime = this.beginTime = new Date();
-      this.active = 0.0;
-      Log.d('start(): startTime=' + this.startTime);
-    },
+  DefaultDict.prototype.set = function (key, value) {
+    if (isUndefined(key)) {
+      return this.dummy_;
+    }
+    this.dict_[key] = value;
+    return value;
+  };
 
-    pause: function () {
-      Log.d('pause(): ' + this.toString());
-      if (this.state !== this.STARTED) {
-        Log.w('pause(): state !== STARTED: state === ' + this.state);
-        return;
-      }
-      this.state = this.PAUSED;
-      this.computeTime();
-      this.beginTime = null;
-    },
+  DefaultDict.prototype.remove = function (key) {
+    if (isUndefined(key) || !this.dict_.hasOwnProperty(key)) {
+      return this.dummy_;
+    }
+    var value = this.dict_[key];
+    delete this.dict_[key];
+    return value;
+  };
 
-    resume: function () {
-      Log.d('resume(): ' + this.toString());
-      if (this.state !== this.PAUSED) {
-        Log.w('resume(): state !== PAUSED: state === ' + this.state);
-        return;
-      }
-      this.state = this.STARTED;
-      this.beginTime = new Date();
-      Log.d('resume(): beginTime=' + this.beginTime);
-    },
+  Tracker = function (tabId) {
+    if (!(this instanceof Tracker)) {
+      return new Tracker(tabId);
+    }
+    this.tabId_ = tabId;
+    this.url_ = undefined;
+    this.start_ = undefined;
+  };
 
-    stop: function () {
-      Log.d('stop(): ' + this.toString());
-      var endTime = new Date();
-      if (this.state !== this.STARTED && this.state !== this.PAUSED) {
-        Log.w('stop(): state !== STARTED && state !== PAUSED: ' +
-            'state === ' + this.state);
-        return;
-      }
-      this.computeTime();
-      if (this.currentUrl !== null) {
-        Uploader.upload(this.currentUrl, this.startTime, endTime, this.active);
-      }
-      this.state = this.STOPPED;
-      this.currentUrl = null;
-      this.startTime = null;
-      this.beginTime = null;
-      this.active = null;
-    },
+  Tracker.prototype.url = function (url) {
+    if (!isUndefined(url)) {
+      Log.d(this.m_('url', this.url_ + ' -> ' + url));
+      this.url_ = url;
+    }
+    return this.url_;
+  };
 
-    computeTime: function () {
-      var endTime, seconds;
-      if (this.beginTime === null) {
-        return;
-      }
-      endTime = new Date();
-      seconds = (endTime - this.beginTime) / 1000.0;
-      Log.d('computeTime(): endTime=' + endTime + ', seconds=' + seconds);
-      this.active += seconds;
-    },
+  Tracker.prototype.start = function () {
+    if (!isUndefined(this.start_)) {
+      Log.e(this.m_('start', 'Tracker has been started: ' + this.start_));
+      return;
+    }
+    this.start_ = new Date();
+    Log.d(this.m_('start', this.start_));
+    return this;
+  };
 
-    toString: function () {
-      return 'Tracker(' +
-        'state=' + this.state + ', ' +
-        'currentUrl=' + this.currentUrl + ', ' +
-        'startTime=' + this.startTime + ', ' +
-        'beginTime=' + this.beginTime + ', ' +
-        'active=' + this.active + ')';
-    },
+  Tracker.prototype.stop = function () {
+    var end, duration;
+    if (isUndefined(this.start_)) {
+      Log.e(this.m_('stop', 'Tracker was not started'));
+      return this;
+    }
+    if (isUndefined(this.url_)) {
+      Log.w(this.m_('stop', 'Tracker has no url'));
+    }
+    end = new Date();
+    duration = (end - this.start_) / 1000.0;
+    Log.d(this.m_('stop', 'duration=' + duration, 'end=' + end));
+    if (!isUndefined(this.url_)) {
+      Uploader.upload(this.url_, this.start_, end);
+    }
+    this.start_ = undefined;
+    return this;
+  };
+
+  Tracker.prototype.cancel = function () {
+    if (isUndefined(this.start_)) {
+      Log.e(this.m_('cancel', 'Tracker was not started'));
+      return this;
+    }
+    Log.d(this.m_('cancel', 'url=' + this.url_));
+    this.start_ = undefined;
+    return this;
+  }
+
+  Tracker.prototype.m_ = function (methodName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return methodName + '(' + this.tabId_ + '): ' + args.join(', ');
   };
 
   Uploader = {
-    baseUrl: 'https://spreadsheets.google.com/feeds',
-    token: '',
-    spreadsheetId: '',
-    worksheetId: '',
+    url_: 'https://spreadsheets.google.com/feeds',
+    token_: undefined,
+    spreadsheet_: undefined,
+    worksheet_: undefined,
 
-    setToken: function (token) {
-      Log.i('setToken()');
-      this.token = token;
-    },
-
-    setSpreadsheetId: function (spreadsheetId) {
-      Log.i('setSpreadsheetId()');
-      this.spreadsheetId = spreadsheetId;
-    },
-
-    setWorksheetId: function (worksheetId) {
-      Log.i('setWorksheetId()');
-      this.worksheetId = worksheetId;
-    },
-
-    upload: function (url, start, end, active) {
-      Log.i('upload(): url=' + url + ', ' +
-          'start=' + start + ', end=' + end + ', active=' + active);
-      var xhr, apiUrl, xml;
-      if (this.token === '' || url === null || url === '' ||
-          this.spreadsheetId === '' || this.worksheetId === '') {
-        return;
+    token: function (token) {
+      if (!isUndefined(token)) {
+        Log.i('Uploader.token()');
+        this.token_ = token;
       }
+      return this.token_;
+    },
+
+    spreadsheet: function (spreadsheet) {
+      if (!isUndefined(spreadsheet)) {
+        Log.i('Uploader.spreadsheet(): ' +
+            this.spreadsheet_ + ' -> ' + spreadsheet);
+        this.spreadsheet_ = spreadsheet;
+      }
+      return this.spreadsheet_;
+    },
+
+    worksheet: function (worksheet) {
+      if (!isUndefined(worksheet)) {
+        Log.i('Uploader.worksheet(): ' + this.worksheet_ + ' -> ' + worksheet);
+        this.worksheet_ = worksheet;
+      }
+      return this.worksheet_;
+    },
+
+    upload: function (url, start, end) {
+      Log.i('Uploader.upload(): ' +
+          'url=' + url + ', start=' + start + ', end=' + end);
+      if (isUndefined(this.token_) ||
+          isUndefined(this.spreadsheet_) ||
+          isUndefined(this.worksheet_)) {
+        return this;
+      }
+
+      var xhr, api, xml;
       // Create worksheet row.
       xml = document.implementation.createDocument(
         'http://www.w3.org/2005/Atom',
@@ -131,21 +156,21 @@
         'xmlns:gsx',
         'http://schemas.google.com/spreadsheets/2006/extended'
       );
-      xml.documentElement.appendChild(this.makeElement('url', url));
-      xml.documentElement.appendChild(this.makeElement('start', start));
-      xml.documentElement.appendChild(this.makeElement('end', end));
-      xml.documentElement.appendChild(this.makeElement('active', active));
+      xml.documentElement.appendChild(this.element_('url', url));
+      xml.documentElement.appendChild(this.element_('start', start));
+      xml.documentElement.appendChild(this.element_('end', end));
       // Send it to the spreadsheet.
       xhr = new XMLHttpRequest();
-      apiUrl = this.baseUrl + '/list/' + this.spreadsheetId + '/' +
-        this.worksheetId + '/private/full';
-      xhr.open('POST', apiUrl, true);
-      xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
+      api = this.url_ + '/list/' + this.spreadsheet_ + '/' +
+        this.worksheet_ + '/private/full';
+      xhr.open('POST', api, true);
+      xhr.setRequestHeader('Authorization', 'Bearer ' + this.token_);
       xhr.setRequestHeader('Content-Type', 'application/atom+xml');
       xhr.send(xml);
+      return this;
     },
 
-    makeElement: function (name, value) {
+    element_: function (name, value) {
       var element;
       element = document.createElement('gsx:' + name);
       element.textContent = value;
@@ -161,87 +186,143 @@
     DEBUG: 4,
 
     // Default to INFO.
-    level: 3,
+    level_: 3,
 
-    setVerboseLevel: function (level) {
-      this.level = level;
+    level: function (level) {
+      if (!isUndefined(level)) {
+        this.level_ = level;
+      }
+      return this.level_;
     },
 
     e: function (message) {
-      if (this.level >= this.ERROR) {
-        this.print('ERR  ', message);
+      if (this.level_ >= this.ERROR) {
+        this.print_('ERR  ', message);
       }
     },
 
     w: function (message) {
-      if (this.level >= this.WARNING) {
-        this.print('WARN ', message);
+      if (this.level_ >= this.WARNING) {
+        this.print_('WARN ', message);
       }
     },
 
     i: function (message) {
-      if (this.level >= this.INFO) {
-        this.print('INFO ', message);
+      if (this.level_ >= this.INFO) {
+        this.print_('INFO ', message);
       }
     },
 
     d: function (message) {
-      if (this.level >= this.DEBUG) {
-        this.print('DEBUG', message);
+      if (this.level_ >= this.DEBUG) {
+        this.print_('DEBUG', message);
       }
     },
 
-    print: function (label, message) {
+    print_: function (label, message) {
       console.log(label + ': ' + message);
     },
   };
 
-  // Manage tab life cycle.
-  chrome.tabs.onRemoved.addListener(function () {
-    Log.d('onRemoved()');
-    Tracker.stop();
+  isUndefined = function (x) {
+    return x === undefined;
+  };
+
+  trackers = new DefaultDict(function (tabId) {
+    return new Tracker(tabId);
+  }, {
+    url: function () { return undefined; },
+    start: function () { return this; },
+    stop: function () { return this; },
   });
 
-  chrome.tabs.onActivated.addListener(function () {
-    // Stop the old, and start the new.
-    Log.d('onActivated()');
-    Tracker.stop();
-    Tracker.start();
+  activatedTabId = undefined;
+
+  // Life cycle management.
+  chrome.tabs.onCreated.addListener(function (tab) {
+    Log.d('tabs.onCreated(): ' + tab.id);
+    trackers.get(tab.id).url(tab.url);
+  });
+  chrome.tabs.onRemoved.addListener(function (tabId) {
+    Log.d('tabs.onRemoved(): ' + tabId);
+    if (activatedTabId === tabId) {
+      trackers.remove(tabId).stop();
+      activatedTabId = undefined;
+    } else {
+      trackers.remove(tabId).cancel();
+    }
+  });
+  chrome.windows.onRemoved.addListener(function (windowId) {
+    Log.d('windows.onRemoved(): ' + windowId);
   });
 
-  // Retrieve tab's URL.
-  chrome.tabs.onUpdated.addListener(function (tabId, changeInfo) {
-    Log.d('onUpdated(): ' +
-      'tabId=' + tabId + ', changeInfo.url=' + changeInfo.url);
-    if (typeof changeInfo.url === 'string') {
-      if (Tracker.currentUrl !== changeInfo.url) {
-        Tracker.stop();
-        Tracker.currentUrl = changeInfo.url;
+  // Activation callback.
+  chrome.windows.onFocusChanged.addListener(function (windowId) {
+    Log.d('windows.onFocusChanged(): windowId=' + windowId);
+    chrome.tabs.query({'active': true, 'windowId': windowId}, function (tabs) {
+      var i;
+      for (i = 0; i < tabs.length; i++) {
+        if (activatedTabId !== tabs[i].id) {
+          Log.d('windows.onFocusChanged(): ' +
+            activatedTabId + ' -> ' + tabs[i].id);
+          trackers.get(activatedTabId).stop();
+          activatedTabId = tabs[i].id;
+          trackers.get(activatedTabId).start();
+          chrome.tabs.get(activatedTabId, function (tab) {
+            trackers.get(tab.id).url(tab.url);
+          });
+        }
       }
+    });
+  });
+  chrome.tabs.onActivated.addListener(function (activeInfo) {
+    if (activatedTabId === activeInfo.tabId) {
+      return;
     }
-    if (changeInfo.status === 'complete') {
-      Tracker.start();
+    Log.d('tabs.onActivated(): ' + activatedTabId + ' -> ' + activeInfo.tabId);
+    trackers.get(activatedTabId).stop();
+    activatedTabId = activeInfo.tabId;
+    trackers.get(activatedTabId).start();
+    chrome.tabs.get(activatedTabId, function (tab) {
+      trackers.get(tab.id).url(tab.url);
+    });
+  });
+
+  // Receive URL.
+  chrome.tabs.onUpdated.addListener(function (tabId, changeInfo) {
+    var url = trackers.get(tabId).url();
+    if (isUndefined(changeInfo.url) || changeInfo.url === url) {
+      return;
     }
+    Log.d('tabs.onUpdated(): tabId=' + tabId);
+    trackers.get(tabId).stop().start().url(changeInfo.url);
   });
 
   // Manage prerendering or instant of tabs.
-  chrome.tabs.onReplaced.addListener(function (addedTabId) {
-    chrome.tabs.get(addedTabId, function (tab) {
-      Log.d('onReplaced(): ' +
-        'tab.url=' + tab.url + ', Tracker.currentUrl=' + Tracker.currentUrl);
-      if (typeof tab.url === 'string') {
-        Tracker.currentUrl = tab.url;
+  chrome.tabs.onReplaced.addListener(function (addedTabId, removedTabId) {
+    if (removedTabId === activatedTabId) {
+      Log.d('tabs.onReplaced(): removedTabId=' + removedTabId);
+      trackers.remove(removedTabId).stop();
+      if (activatedTabId === removedTabId) {
+        activatedTabId = undefined;
       }
+    }
+    Log.d('tabs.onReplaced(): addedTabId=' + addedTabId);
+    chrome.tabs.get(addedTabId, function (tab) {
+      trackers.get(addedTabId).url(tab.url);
     });
   });
 
   // Monitor idle states.
   chrome.idle.onStateChanged.addListener(function (newState) {
-    Log.d('onStateChanged(): newState=' + newState);
+    Log.d('idle.onStateChanged(): newState=' + newState);
     if (newState === 'active') {
-      Tracker.resume();
+      trackers.get(activatedTabId).start();
+      chrome.tabs.get(activatedTabId, function (tab) {
+        trackers.get(tab.id).url(tab.url);
+      });
     } else {
-      Tracker.pause();
+      trackers.get(activatedTabId).stop();
     }
   });
 
@@ -249,13 +330,13 @@
   chrome.runtime.onMessage.addListener(function (request) {
     Log.d('onMessage(): request.action=' + request.action);
     if (request.action === 'set-spreadsheet-id') {
-      Uploader.setSpreadsheetId(request.args[0]);
+      Uploader.spreadsheet(request.args[0]);
     } else if (request.action === 'set-worksheet-id') {
-      Uploader.setWorksheetId(request.args[0]);
+      Uploader.worksheet(request.args[0]);
     } else if (request.action === 'set-verbose-level') {
-      Log.setVerboseLevel(request.args[0]);
+      Log.level(request.args[0]);
     } else if (request.action === 'set-oauth-token') {
-      Uploader.setToken(request.args[0]);
+      Uploader.token(request.args[0]);
     }
   });
 
@@ -263,17 +344,17 @@
   chrome.identity.getAuthToken({'interactive': true}, function (token) {
     Log.d('getAuthToken()');
     if (token) {
-      Uploader.setToken(token);
+      Uploader.token(token);
     }
   });
 
   // Retrieve spreadsheet-id and worksheet-id.
   chrome.storage.sync.get(['spreadsheet-id', 'worksheet-id'], function (ids) {
     if (ids['spreadsheet-id']) {
-      Uploader.setSpreadsheetId(ids['spreadsheet-id']);
+      Uploader.spreadsheet(ids['spreadsheet-id']);
     }
     if (ids['worksheet-id']) {
-      Uploader.setWorksheetId(ids['worksheet-id']);
+      Uploader.worksheet(ids['worksheet-id']);
     }
   });
 }());

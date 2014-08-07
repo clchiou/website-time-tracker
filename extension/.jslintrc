@@ -1,3 +1,4 @@
 {
+  "nomen": true,
   "predef": ["chrome"]
 }
