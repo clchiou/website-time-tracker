@@ -36,9 +36,10 @@
   };
 
   onSetVerboseLevel = function () {
-    var level = getSelectedOptionValue(verboseLevelElement);
+    var level = parseInt(getSelectedOptionValue(verboseLevelElement), 10);
     console.log('onSetVerboseLevel(): level=' + level);
     chrome.runtime.sendMessage({action: 'set-verbose-level', args: [level]});
+    chrome.storage.local.set({'verbose-level': level});
   };
 
   onSubmitToken = function () {
@@ -96,6 +97,17 @@
     console.log('getAuthToken()');
     if (token) {
       onRetrieveToken(token);
+    }
+  });
+
+  chrome.storage.local.get({'verbose-level': 3}, function (items) {
+    var i, level = items['verbose-level'];
+    chrome.runtime.sendMessage({action: 'set-verbose-level', args: [level]});
+    for (i = 0; i < verboseLevelElement.options.length; i++) {
+      if (parseInt(verboseLevelElement[i].value, 10) === level) {
+        verboseLevelElement[i].selected = true;
+        break;
+      }
     }
   });
 }());

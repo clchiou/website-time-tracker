@@ -350,4 +350,8 @@
       Uploader.worksheet(ids['worksheet-id']);
     }
   });
+
+  chrome.storage.local.get({'verbose-level': Log.INFO}, function (items) {
+    Log.level(items['verbose-level']);
+  });
 }());
