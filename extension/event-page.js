@@ -45,7 +45,7 @@
   };
 
   Tracker.prototype.url = function (url) {
-    if (!isUndefined(url)) {
+    if (!isUndefined(url) && this.url_ !== url) {
       Log.d(this.m_('url', this.url_ + ' -> ' + url));
       this.url_ = url;
     }
@@ -54,7 +54,7 @@
 
   Tracker.prototype.start = function () {
     if (!isUndefined(this.start_)) {
-      Log.e(this.m_('start', 'Tracker has been started: ' + this.start_));
+      // Tracker was started already.
       return;
     }
     this.start_ = new Date();
@@ -65,7 +65,7 @@
   Tracker.prototype.stop = function () {
     var end, duration;
     if (isUndefined(this.start_)) {
-      Log.e(this.m_('stop', 'Tracker was not started'));
+      // Tracker was not started.
       return this;
     }
     if (isUndefined(this.url_)) {
@@ -83,7 +83,7 @@
 
   Tracker.prototype.cancel = function () {
     if (isUndefined(this.start_)) {
-      Log.e(this.m_('cancel', 'Tracker was not started'));
+      // Tracker was not started.
       return this;
     }
     Log.d(this.m_('cancel', 'url=' + this.url_));
