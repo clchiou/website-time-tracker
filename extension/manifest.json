@@ -16,6 +16,9 @@
     "storage",
     "tabs"
   ],
+  "content_scripts": [
+    {"matches": ["*://*/*"], "js": ["content-script.js"]}
+  ],
   "oauth2": {
     "client_id": "7104262726-86h2n8v0knn7ch3rk89armodvcn8hpfh.apps.googleusercontent.com",
     "scopes": ["https://spreadsheets.google.com/feeds"]

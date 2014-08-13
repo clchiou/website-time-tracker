@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var DefaultDict, Tracker, Uploader, Log, isUndefined,
+  var DefaultDict, Tracker, Uploader, Log, isUndefined, onFocus, onBlur,
     trackers, activatedTabId;
 
   DefaultDict = function (build, dummy) {
@@ -231,11 +231,13 @@
 
   activatedTabId = undefined;
 
-  // Life cycle management.
+  //// Life cycle management.
+
   chrome.tabs.onCreated.addListener(function (tab) {
     Log.d('tabs.onCreated(): ' + tab.id);
     trackers.get(tab.id).url(tab.url);
   });
+
   chrome.tabs.onRemoved.addListener(function (tabId) {
     Log.d('tabs.onRemoved(): ' + tabId);
     if (activatedTabId === tabId) {
@@ -245,41 +247,20 @@
       trackers.remove(tabId).cancel();
     }
   });
-  chrome.windows.onRemoved.addListener(function (windowId) {
-    Log.d('windows.onRemoved(): ' + windowId);
-  });
 
-  // Activation callback.
-  chrome.windows.onFocusChanged.addListener(function (windowId) {
-    Log.d('windows.onFocusChanged(): windowId=' + windowId);
-    chrome.tabs.query({'active': true, 'windowId': windowId}, function (tabs) {
-      var i;
-      for (i = 0; i < tabs.length; i++) {
-        if (activatedTabId !== tabs[i].id) {
-          Log.d('windows.onFocusChanged(): ' +
-            activatedTabId + ' -> ' + tabs[i].id);
-          trackers.get(activatedTabId).stop();
-          activatedTabId = tabs[i].id;
-          trackers.get(activatedTabId).start();
-          chrome.tabs.get(activatedTabId, function (tab) {
-            trackers.get(tab.id).url(tab.url);
-          });
-        }
-      }
-    });
-  });
-  chrome.tabs.onActivated.addListener(function (activeInfo) {
-    if (activatedTabId === activeInfo.tabId) {
-      return;
-    }
-    Log.d('tabs.onActivated(): ' + activatedTabId + ' -> ' + activeInfo.tabId);
-    trackers.get(activatedTabId).stop();
-    activatedTabId = activeInfo.tabId;
-    trackers.get(activatedTabId).start();
-    chrome.tabs.get(activatedTabId, function (tab) {
-      trackers.get(tab.id).url(tab.url);
-    });
-  });
+  //// On focus/blur callbacks.
+
+  onFocus = function (tab) {
+    Log.d('onFocus(): tab.id=' + tab.id);
+    trackers.get(tab.id).start();
+    activatedTabId = tab.id;
+  };
+
+  onBlur = function (tab) {
+    Log.d('onBlur(): tab.id=' + tab.id);
+    trackers.get(tab.id).stop();
+    activatedTabId = undefined;
+  };
 
   // Receive URL.
   chrome.tabs.onUpdated.addListener(function (tabId, changeInfo) {
@@ -319,10 +300,12 @@
     }
   });
 
-  // Receive configurations from options.html
-  chrome.runtime.onMessage.addListener(function (request) {
+  // Receive configurations from options.html or content-script.js.
+  chrome.runtime.onMessage.addListener(function (request, sender) {
     Log.d('onMessage(): request.action=' + request.action);
-    if (request.action === 'set-spreadsheet-id') {
+    if (request.action === 'log') {
+      console.log('tab(' + sender.tab.id + '): ' + request.args[0]);
+    } else if (request.action === 'set-spreadsheet-id') {
       Uploader.spreadsheet(request.args[0]);
     } else if (request.action === 'set-worksheet-id') {
       Uploader.worksheet(request.args[0]);
@@ -330,6 +313,12 @@
       Log.level(request.args[0]);
     } else if (request.action === 'set-oauth-token') {
       Uploader.token(request.args[0]);
+    } else if (request.action === 'event') {
+      if (request.args[0] === 'focus') {
+        onFocus(sender.tab);
+      } else if (request.args[0] === 'blur') {
+        onBlur(sender.tab);
+      }
     }
   });
 
