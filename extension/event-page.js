@@ -262,6 +262,19 @@
     activatedTabId = undefined;
   };
 
+  chrome.tabs.onActivated.addListener(function (activeInfo) {
+    if (activatedTabId === activeInfo.tabId) {
+      return;
+    }
+    Log.d('tabs.onActivated(): ' + activatedTabId + ' -> ' + activeInfo.tabId);
+    trackers.get(activatedTabId).stop();
+    activatedTabId = activeInfo.tabId;
+    trackers.get(activatedTabId).start();
+    chrome.tabs.get(activatedTabId, function (tab) {
+      trackers.get(tab.id).url(tab.url);
+    });
+  });
+
   // Receive URL.
   chrome.tabs.onUpdated.addListener(function (tabId, changeInfo) {
     var url = trackers.get(tabId).url();
@@ -274,14 +287,14 @@
 
   // Manage prerendering or instant of tabs.
   chrome.tabs.onReplaced.addListener(function (addedTabId, removedTabId) {
+    Log.d('tabs.onReplaced(): ' +
+      'addedTabId=' + addedTabId + ', removedTabId=' + removedTabId);
     if (removedTabId === activatedTabId) {
-      Log.d('tabs.onReplaced(): removedTabId=' + removedTabId);
       trackers.remove(removedTabId).stop();
-      if (activatedTabId === removedTabId) {
-        activatedTabId = undefined;
-      }
+      activatedTabId = undefined;
+    } else {
+      trackers.remove(removedTabId).cancel();
     }
-    Log.d('tabs.onReplaced(): addedTabId=' + addedTabId);
     chrome.tabs.get(addedTabId, function (tab) {
       trackers.get(addedTabId).url(tab.url);
     });
