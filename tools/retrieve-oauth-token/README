@@ -1,2 +1,0 @@
-Serve this directory from a local HTTP server (python -m SimpleHTTPServer).
-This is useful for retrieving OAuth Token during development.

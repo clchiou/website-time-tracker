@@ -336,7 +336,7 @@
   });
 
   // Retrieve OAuth Token.
-  chrome.identity.getAuthToken({'interactive': true}, function (token) {
+  chrome.identity.getAuthToken({'interactive': false}, function (token) {
     Log.d('getAuthToken()');
     if (token) {
       Uploader.token(token);

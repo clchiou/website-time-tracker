@@ -4,20 +4,17 @@
 (function () {
   'use strict';
 
-  var onSetSpreadsheet, onSetWorksheet, onSetVerboseLevel, onSubmitToken,
+  var onSetSpreadsheet, onSetWorksheet, onSetVerboseLevel,
     onRetrieveToken, getSelectedOptionValue, addOptions,
-    spreadsheetsElement, worksheetsElement,
-    verboseLevelElement, tokenElement, tokenSubmitElement,
+    spreadsheetsElement, worksheetsElement, verboseLevelElement,
     baseUrl, oauthToken;
 
   baseUrl = 'https://spreadsheets.google.com/feeds';
-  oauthToken = null;
+  oauthToken = undefined;
 
   spreadsheetsElement = document.getElementById('spreadsheets');
   worksheetsElement = document.getElementById('worksheets');
   verboseLevelElement = document.getElementById('verbose-level');
-  tokenElement = document.getElementById('oauth-token');
-  tokenSubmitElement = document.getElementById('oauth-token-submit');
 
   onSetSpreadsheet = function () {
     var apiUrl, id = getSelectedOptionValue(spreadsheetsElement);
@@ -40,13 +37,6 @@
     console.log('onSetVerboseLevel(): level=' + level);
     chrome.runtime.sendMessage({action: 'set-verbose-level', args: [level]});
     chrome.storage.local.set({'verbose-level': level});
-  };
-
-  onSubmitToken = function () {
-    console.log('onSubmitToken()');
-    if (tokenElement.value) {
-      onRetrieveToken(tokenElement.value);
-    }
   };
 
   onRetrieveToken = function (token) {
@@ -90,7 +80,6 @@
   spreadsheetsElement.addEventListener('change', onSetSpreadsheet);
   worksheetsElement.addEventListener('change', onSetWorksheet);
   verboseLevelElement.addEventListener('change', onSetVerboseLevel);
-  tokenSubmitElement.addEventListener('click', onSubmitToken);
 
   // Retrieve OAuth Token.
   chrome.identity.getAuthToken({'interactive': true}, function (token) {
