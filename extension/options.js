@@ -4,26 +4,18 @@
 (function () {
   'use strict';
 
-  var
+  var BASE_URL, Dom, State,
     // <option> helper functions.
-    getSelectedOptionValue,
-    setOptions,
-    setSelectedOption,
-    // DOM elements.
-    spreadsheetsElement,
-    worksheetsElement,
-    saveElement,
-    verboseLevelElement,
-    // Global variables.
-    BASE_URL,
-    State;
+    getSelectedOptionValue, setOptions, setSelectedOption;
 
   BASE_URL = 'https://spreadsheets.google.com/feeds';
 
-  spreadsheetsElement = document.getElementById('spreadsheets');
-  worksheetsElement = document.getElementById('worksheets');
-  saveElement = document.getElementById('save');
-  verboseLevelElement = document.getElementById('verbose-level');
+  Dom = {
+    spreadsheets: document.getElementById('spreadsheets'),
+    worksheets: document.getElementById('worksheets'),
+    save: document.getElementById('save'),
+    verboseLevel: document.getElementById('verbose'),
+  };
 
   State = {
     token_: null,
@@ -65,11 +57,11 @@
     },
 
     onSetOptions: function (element) {
-      if (element === spreadsheetsElement) {
+      if (element === Dom.spreadsheets) {
         console.log('State.onSetOptions: spreadsheets');
         this.spreadsheetUpdated_ = true;
         this.next_({});
-      } else if (element === worksheetsElement) {
+      } else if (element === Dom.worksheets) {
         console.log('State.onSetOptions: worksheets');
         this.worksheetUpdated_ = true;
         this.next_({});
@@ -87,25 +79,25 @@
         });
         this.spreadsheetUpdated_ = false;
         url = BASE_URL + '/spreadsheets/private/full';
-        setOptions(url, spreadsheetsElement, this.token_);
+        setOptions(url, Dom.spreadsheets, this.token_);
       }
       if (this.token_ && this.spreadsheetId_ &&
           (changed.token || changed.spreadsheetId)) {
         this.worksheetUpdated_ = false;
         url = BASE_URL + '/worksheets/' + this.spreadsheetId_ + '/private/full';
-        setOptions(url, worksheetsElement, this.token_);
+        setOptions(url, Dom.worksheets, this.token_);
       }
       if (this.spreadsheetId_ && this.spreadsheetUpdated_) {
-        setSelectedOption(spreadsheetsElement, this.spreadsheetId_);
+        setSelectedOption(Dom.spreadsheets, this.spreadsheetId_);
       }
       if (this.worksheetId_ && this.worksheetUpdated_) {
-        setSelectedOption(worksheetsElement, this.worksheetId_);
+        setSelectedOption(Dom.worksheets, this.worksheetId_);
       }
       if (this.spreadsheetId_ && this.worksheetId_ &&
           this.spreadsheetUpdated_ && this.worksheetUpdated_) {
-        saveElement.disabled = false;
+        Dom.save.disabled = false;
       } else {
-        saveElement.disabled = true;
+        Dom.save.disabled = true;
       }
     },
   };
@@ -126,8 +118,8 @@
     }
   });
 
-  spreadsheetsElement.addEventListener('change', function () {
-    var id = getSelectedOptionValue(spreadsheetsElement);
+  Dom.spreadsheets.addEventListener('change', function () {
+    var id = getSelectedOptionValue(Dom.spreadsheets);
     console.log('spreadsheets.change(): ' + id);
     if (id) {
       if (id !== State.spreadsheetId()) {
@@ -138,15 +130,15 @@
     }
   });
 
-  worksheetsElement.addEventListener('change', function () {
-    var id = getSelectedOptionValue(worksheetsElement);
+  Dom.worksheets.addEventListener('change', function () {
+    var id = getSelectedOptionValue(Dom.worksheets);
     console.log('worksheets.change(): ' + id);
     if (id) {
       State.worksheetId(id);
     }
   });
 
-  saveElement.addEventListener('click', function () {
+  Dom.save.addEventListener('click', function () {
     if (State.spreadsheetId() === undefined ||
         State.worksheetId() === undefined) {
       return;
@@ -166,11 +158,11 @@
   });
 
   chrome.storage.local.get({'verbose-level': 3}, function (items) {
-    setSelectedOption(verboseLevelElement, items['verbose-level'].toString());
+    setSelectedOption(Dom.verbose, items['verbose-level'].toString());
   });
 
-  verboseLevelElement.addEventListener('change', function () {
-    var level = parseInt(getSelectedOptionValue(verboseLevelElement), 10);
+  Dom.verbose.addEventListener('change', function () {
+    var level = parseInt(getSelectedOptionValue(Dom.verbose), 10);
     console.log('verbose-level.change(): level=' + level);
     chrome.storage.local.set({'verbose-level': level});
     chrome.runtime.sendMessage({action: 'set-verbose-level', args: [level]});
