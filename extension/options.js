@@ -14,7 +14,7 @@
     spreadsheets: document.getElementById('spreadsheets'),
     worksheets: document.getElementById('worksheets'),
     save: document.getElementById('save'),
-    verboseLevel: document.getElementById('verbose'),
+    verbose: document.getElementById('verbose'),
   };
 
   State = {
@@ -57,14 +57,33 @@
     },
 
     onSetOptions: function (element) {
+      var id;
       if (element === Dom.spreadsheets) {
         console.log('State.onSetOptions: spreadsheets');
         this.spreadsheetUpdated_ = true;
-        this.next_({});
+        if (this.spreadsheetId_) {
+          this.next_({});
+        } else {
+          id = getSelectedOptionValue(Dom.spreadsheets);
+          console.log('State.onSetOptions: id=' + id);
+          if (id) {
+            this.spreadsheetId_ = id;
+            this.next_({spreadsheetId: true});
+          }
+        }
       } else if (element === Dom.worksheets) {
         console.log('State.onSetOptions: worksheets');
         this.worksheetUpdated_ = true;
-        this.next_({});
+        if (this.worksheetId_) {
+          this.next_({});
+        } else {
+          id = getSelectedOptionValue(Dom.worksheets);
+          console.log('State.onSetOptions: id=' + id);
+          if (id) {
+            this.worksheetId_ = id;
+            this.next_({worksheetId: true});
+          }
+        }
       } else {
         console.log('State.onSetOptions: Could not recognize: ' + element);
       }
@@ -139,10 +158,11 @@
   });
 
   Dom.save.addEventListener('click', function () {
-    if (State.spreadsheetId() === undefined ||
-        State.worksheetId() === undefined) {
+    if (!State.spreadsheetId() || !State.worksheetId()) {
       return;
     }
+    console.log('save.click: ' +
+      State.spreadsheetId() + ' ' + State.worksheetId());
     chrome.storage.sync.set({
       'spreadsheet-id': State.spreadsheetId(),
       'worksheet-id': State.worksheetId()
@@ -163,7 +183,7 @@
 
   Dom.verbose.addEventListener('change', function () {
     var level = parseInt(getSelectedOptionValue(Dom.verbose), 10);
-    console.log('verbose-level.change(): level=' + level);
+    console.log('verbose.change(): level=' + level);
     chrome.storage.local.set({'verbose-level': level});
     chrome.runtime.sendMessage({action: 'set-verbose-level', args: [level]});
   });
