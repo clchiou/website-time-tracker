@@ -6,19 +6,20 @@
 <body>
 <h3>Preferences</h3>
 
-<p>Spreadsheet: <select id="spreadsheets"></select>
-Worksheet: <select id="worksheets"></select>
-<input type="button" disabled="true" id="save" value="Save"/></p>
-
-<p>Verbose Level:
-<select id="verbose">
-  <option value="0">SILENCE</option>
-  <option value="1">ERROR</option>
-  <option value="2">WARNING</option>
-  <option value="3">INFO</option>
-  <option value="4">DEBUG</option>
-</select>
-</p>
+<p><ul>
+  <li>Select spreadsheet <select id="spreadsheets"></select></li>
+  <li>Select worksheet <select id="worksheets"></select></li>
+  <li>Save spreadsheet/worksheet selection <input type="button" disabled="true" id="save" value="Save"/></li>
+  <li>Download worksheet <input type="button" disabled="true" id="download" value="Download"/></li>
+  <li>Set verbose level (for debugging)
+  <select id="verbose">
+    <option value="0">SILENCE</option>
+    <option value="1">ERROR</option>
+    <option value="2">WARNING</option>
+    <option value="3">INFO</option>
+    <option value="4">DEBUG</option>
+  </select></li>
+</ul></p>
 
 <script type="text/javascript" src="options.js"></script>
 </body>
