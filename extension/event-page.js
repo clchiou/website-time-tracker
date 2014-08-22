@@ -133,6 +133,7 @@
       if (isUndefined(this.token_) ||
           isUndefined(this.spreadsheet_) ||
           isUndefined(this.worksheet_)) {
+        Log.d('Uploader.upload(): state incomplete');
         return this;
       }
 

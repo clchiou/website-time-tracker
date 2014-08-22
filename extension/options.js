@@ -4,16 +4,21 @@
 (function () {
   'use strict';
 
-  var BASE_URL, Dom, State,
+  var BASE_URL, FILE_NAME, Dom, State,
+    // Helper functions.
+    getUrl, download,
     // <option> helper functions.
     getSelectedOptionValue, setOptions, setSelectedOption;
 
   BASE_URL = 'https://spreadsheets.google.com/feeds';
 
+  FILE_NAME = 'tracking-data.csv';
+
   Dom = {
     spreadsheets: document.getElementById('spreadsheets'),
     worksheets: document.getElementById('worksheets'),
     save: document.getElementById('save'),
+    download: document.getElementById('download'),
     verbose: document.getElementById('verbose'),
   };
 
@@ -115,8 +120,10 @@
       if (this.spreadsheetId_ && this.worksheetId_ &&
           this.spreadsheetUpdated_ && this.worksheetUpdated_) {
         Dom.save.disabled = false;
+        Dom.download.disabled = false;
       } else {
         Dom.save.disabled = true;
+        Dom.download.disabled = true;
       }
     },
   };
@@ -177,6 +184,16 @@
     });
   });
 
+  Dom.download.addEventListener('click', function () {
+    if (!State.token() || !State.spreadsheetId() || !State.worksheetId()) {
+      return;
+    }
+    console.log('download.click: ' +
+      State.spreadsheetId() + ' ' + State.worksheetId());
+    download(State.token(), State.spreadsheetId(), State.worksheetId(),
+      FILE_NAME, 'text/csv');
+  });
+
   chrome.storage.local.get({'verbose-level': 3}, function (items) {
     setSelectedOption(Dom.verbose, items['verbose-level'].toString());
   });
@@ -188,21 +205,77 @@
     chrome.runtime.sendMessage({action: 'set-verbose-level', args: [level]});
   });
 
+  getUrl = function (url, token, onReady) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.setRequestHeader('Content-Type', 'application/atom+xml');
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        onReady(xhr);
+      }
+    };
+    xhr.send();
+  };
+
+  download = function (token, spreadsheetId, worksheetId, name, type) {
+    var url = BASE_URL +
+      '/list/' + spreadsheetId + '/' + worksheetId + '/private/full';
+    getUrl(url, token, function (xhr) {
+      var rows, blob, size;
+      // Fetch rows.
+      rows = xhr.responseXML.getElementsByTagName('entry');
+      rows = Array.prototype.map.call(rows, function (entry) {
+        var row = {};
+        Array.prototype.forEach.call(entry.childNodes, function (node) {
+          ['url', 'start', 'end'].forEach(function (name) {
+            if (node.tagName === 'gsx:' + name) {
+              row[name] = node.textContent;
+            }
+          });
+        });
+        return row;
+      });
+      // Construct a blob.
+      rows = rows.map(function (row) {
+        return (row.url   || '') + '\t' +
+               (row.start || '') + '\t' +
+               (row.end   || '') + '\n';
+      });
+      rows.splice(0, 0, 'url\tstart\tend\n');
+      blob = new Blob(rows, {type: type});
+      // Write to a file.
+      size = 10 * 1024 * 1024;  // 10MB.
+      window.webkitRequestFileSystem(window.TEMPORARY, size, function (fs) {
+        fs.root.getFile(name, {create: true}, function (entry) {
+          entry.createWriter(function (writer) {
+            writer.onwriteend = function () {
+              console.log('writer.write: open a new window for download');
+              window.open(entry.toURL(type));
+            };
+            writer.onerror = function (error) {
+              console.log('writer.write: ' + error.code);
+            };
+            writer.write(blob);
+          }, function (error) {
+            console.log('createWriter: ' + error.code);
+          });
+        }, function (error) {
+          console.log('getFile: ' + error.code);
+        });
+      }, function (error) {
+        console.log('webkitRequestFileSystem: ' + error.code);
+      });
+    });
+  };
+
   getSelectedOptionValue = function (selectElement) {
     return selectElement.options[selectElement.selectedIndex].value;
   };
 
   setOptions = function (url, selectElement, token) {
-    var xhr;
-    xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-    xhr.setRequestHeader('Content-Type', 'application/atom+xml');
-    xhr.onreadystatechange = function () {
+    getUrl(url, token, function (xhr) {
       var entries, i, id, title, option;
-      if (xhr.readyState !== 4) {
-        return;
-      }
       // Remove old children.
       while (selectElement.firstChild) {
         selectElement.removeChild(selectElement.firstChild);
@@ -220,8 +293,7 @@
         selectElement.appendChild(option);
       }
       State.onSetOptions(selectElement);
-    };
-    xhr.send();
+    });
   };
 
   setSelectedOption = function (selectElement, value) {

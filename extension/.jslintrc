@@ -1,4 +1,4 @@
 {
   "nomen": true,
-  "predef": ["chrome"]
+  "predef": ["Blob", "chrome"]
 }
